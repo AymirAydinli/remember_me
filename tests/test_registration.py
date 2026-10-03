@@ -161,3 +161,105 @@ def test_face_detection_error_creates_no_records(
     with test_session_factory() as db:
         assert db.scalars(select(Person)).all() == []
         assert db.scalars(select(FaceEmbedding)).all() == []
+
+
+def test_recognizes_familiar_person(
+    registration_context: tuple[TestClient, sessionmaker[Session]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, test_session_factory = registration_context
+
+    with test_session_factory() as db:
+        person = Person(
+            name="Anna Kowalska",
+            relationship="Daughter",
+        )
+        person.embeddings.append(
+            FaceEmbedding(
+                embedding=[1.0, 0.0],
+                model_name="ArcFace",
+            )
+        )
+        db.add(person)
+        db.commit()
+
+    def fake_generate_embedding(image_bytes: bytes) -> list[float]:
+        assert image_bytes == b"query-image"
+        return [0.99, 0.1]
+
+    monkeypatch.setattr(
+        "remember_me.main.generate_face_embedding",
+        fake_generate_embedding,
+    )
+
+    response = client.post(
+        "/api/recognize",
+        files={
+            "image": ("query.jpg", b"query-image", "image/jpeg"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "recognized": True,
+        "name": "Anna Kowalska",
+        "relationship": "Daughter",
+    }
+
+
+def test_returns_unknown_when_closest_match_is_weak(
+    registration_context: tuple[TestClient, sessionmaker[Session]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, test_session_factory = registration_context
+
+    with test_session_factory() as db:
+        person = Person(
+            name="Wrong Person",
+            relationship="Stranger",
+        )
+        person.embeddings.append(
+            FaceEmbedding(
+                embedding=[0.5, 0.866],
+                model_name="ArcFace",
+            )
+        )
+        db.add(person)
+        db.commit()
+
+    monkeypatch.setattr(
+        "remember_me.main.generate_face_embedding",
+        lambda image_bytes: [1.0, 0.0],
+    )
+
+    response = client.post(
+        "/api/recognize",
+        files={
+            "image": ("query.jpg", b"query-image", "image/jpeg"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"recognized": False}
+
+
+def test_returns_unknown_when_database_has_no_embeddings(
+    registration_context: tuple[TestClient, sessionmaker[Session]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _ = registration_context
+
+    monkeypatch.setattr(
+        "remember_me.main.generate_face_embedding",
+        lambda image_bytes: [1.0, 0.0],
+    )
+
+    response = client.post(
+        "/api/recognize",
+        files={
+            "image": ("query.jpg", b"query-image", "image/jpeg"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"recognized": False}
