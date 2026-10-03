@@ -7,10 +7,53 @@
     <link rel="stylesheet" href="/static/styles.css" />
     <script src="/static/app.js" defer></script>
   </head>
+
   <body>
-    <main>
-      <h1>Remember Me</h1>
-      <p>Dementia assistance prototype</p>
+    <main class="app-shell">
+      <header>
+        <p class="eyebrow">Dementia assistance prototype</p>
+        <h1>Remember Me</h1>
+        <p class="introduction">
+          Start the camera to identify a familiar person.
+        </p>
+      </header>
+
+      <section class="camera-panel" aria-label="Camera">
+        <div class="camera-frame">
+          <video
+            id="camera"
+            autoplay
+            muted
+            playsinline
+            aria-label="Live camera preview"
+          ></video>
+
+          <p id="camera-placeholder">Camera is off</p>
+        </div>
+
+        <canvas id="capture-canvas" hidden></canvas>
+
+        <div class="controls">
+          <button id="start-camera" type="button">Start camera</button>
+
+          <button id="stop-camera" type="button" disabled>Stop camera</button>
+        </div>
+      </section>
+
+      <section
+        id="recognition-result"
+        class="recognition-result"
+        data-state="idle"
+        aria-live="polite"
+      >
+        <p id="status-label" class="status-label">Camera is off</p>
+        <h2 id="person-name">No recognition in progress</h2>
+        <p id="person-relationship" class="relationship"></p>
+      </section>
+
+      <p class="privacy-note">
+        Camera frames are processed for recognition and are not stored.
+      </p>
     </main>
   </body>
 </html>
