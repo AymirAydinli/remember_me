@@ -11,3 +11,8 @@ wheels/
 
 # Local SQLite database and temporary files
 /remember_me.db*
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
