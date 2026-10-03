@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 MODEL_NAME = "ArcFace"
-DETECTOR_BACKEND = "opencv"
+DETECTOR_BACKEND = "retinaface"
 
 
 class FaceProcessingError(Exception):
@@ -43,7 +43,12 @@ def generate_face_embedding(image_bytes: bytes) -> list[float]:
             align=True,
         )
     except ValueError as error:
-        raise NoFaceDetectedError("No face was detected") from error
+        if "face could not be detected" in str(error).lower():
+            raise NoFaceDetectedError("No face was detected") from error
+
+        raise FaceProcessingError("Face processing failed") from error
+    except Exception as error:
+        raise FaceProcessingError("Face processing failed") from error
 
     if not representations:
         raise NoFaceDetectedError("No face was detected")
