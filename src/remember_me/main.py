@@ -52,6 +52,11 @@ def homepage():
     return FileResponse(WEB_DIR / "index.html")
 
 
+@app.get("/register", include_in_schema=False)
+def registration_page() -> FileResponse:
+    return FileResponse(WEB_DIR / "register.html")
+
+
 @app.post("/people/register", status_code=201)
 def register_person(
     name: Annotated[str, Form()],

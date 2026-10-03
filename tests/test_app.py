@@ -19,6 +19,14 @@ def test_homepage() -> None:
     assert "Remember Me" in response.text
 
 
+def test_registration_page() -> None:
+    response = client.get("/register")
+
+    assert response.status_code == 200
+    assert 'id="registration-form"' in response.text
+    assert "Register person" in response.text
+
+
 def test_stylesheet() -> None:
     response = client.get("/static/styles.css")
 

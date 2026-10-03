@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Register Person | Remember Me</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/register.js" defer></script>
+  </head>
+
+  <body>
+    <main class="registration-page">
+      <header class="page-header">
+        <h1>Register person</h1>
+        <a class="page-link" href="/">Patient view</a>
+      </header>
+
+      <section class="registration-panel">
+        <form id="registration-form">
+          <div class="form-field">
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" maxlength="100" required />
+          </div>
+
+          <div class="form-field">
+            <label for="relationship">Relationship</label>
+            <input
+              id="relationship"
+              name="relationship"
+              type="text"
+              maxlength="100"
+              placeholder="For example: Daughter"
+              required
+            />
+          </div>
+
+          <div class="form-field">
+            <label for="image">Face photo</label>
+            <input id="image" name="image" type="file" accept="image/*" required />
+            <p class="field-help">Use one clear photo with a single face, up to 10 MB.</p>
+          </div>
+
+          <div class="image-preview">
+            <span id="preview-placeholder">Image preview</span>
+            <img id="preview-image" alt="Selected face preview" hidden />
+          </div>
+
+          <button id="register-button" type="submit">Register person</button>
+          <p id="form-message" class="form-message" aria-live="polite">
+            The uploaded photo will be processed but not stored.
+          </p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
