@@ -1,9 +1,9 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
-
-from pathlib import Path
 from fastapi import FastAPI, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
+from remember_me.config import OpenAIConfigurationError
 from remember_me.database import engine, get_db
 from remember_me.models import Person, FaceEmbedding, Conversation
 from remember_me.face_service import (
@@ -22,10 +23,29 @@ from remember_me.face_service import (
     analyze_face,
     generate_face_embedding,
 )
+from remember_me.openai_service import (
+    EmptyTranscriptionError,
+    OpenAIService,
+    OpenAIServiceError,
+)
 from remember_me.recognition_service import find_matching_embedding
 
 WEB_DIR = Path(__file__).parent / "web"
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
+MAX_AUDIO_SIZE = 20 * 1024 * 1024
+
+AUDIO_EXTENSIONS = {
+    "audio/flac": ".flac",
+    "audio/m4a": ".m4a",
+    "audio/mp4": ".mp4",
+    "audio/mpeg": ".mp3",
+    "audio/mpga": ".mpga",
+    "audio/ogg": ".ogg",
+    "audio/wav": ".wav",
+    "audio/webm": ".webm",
+    "audio/x-m4a": ".m4a",
+    "audio/x-wav": ".wav",
+}
 
 
 @asynccontextmanager
@@ -40,6 +60,16 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+
+
+def get_openai_service() -> OpenAIService:
+    try:
+        return OpenAIService()
+    except OpenAIConfigurationError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Conversation service is unavailable",
+        ) from error
 
 
 @app.get("/health")
@@ -227,4 +257,102 @@ def recognize_face(
         "relationship": person.relationship,
         "face": face,
         "last_conversation": last_conversation,
+    }
+
+
+@app.post(
+    "/api/people/{person_id}/conversations",
+    status_code=201,
+)
+def create_conversation(
+    person_id: int,
+    audio: Annotated[UploadFile, File()],
+    db: Annotated[Session, Depends(get_db)],
+    openai_service: Annotated[
+        OpenAIService,
+        Depends(get_openai_service),
+    ],
+) -> dict[str, object]:
+    try:
+        person = db.get(Person, person_id)
+    except SQLAlchemyError as error:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not load the person",
+        ) from error
+
+    if person is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Person not found",
+        )
+
+    content_type = (audio.content_type or "").split(";")[0].lower()
+
+    if content_type not in AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported audio type",
+        )
+
+    audio_bytes = audio.file.read(MAX_AUDIO_SIZE + 1)
+
+    if not audio_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="The audio recording is empty",
+        )
+
+    if len(audio_bytes) > MAX_AUDIO_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="Audio cannot exceed 20 MB",
+        )
+
+    filename = f"conversation{AUDIO_EXTENSIONS[content_type]}"
+
+    try:
+        transcript = openai_service.transcribe_audio(
+            audio_bytes,
+            filename=filename,
+            content_type=content_type,
+        )
+        summary = openai_service.summarize_transcript(transcript)
+    except EmptyTranscriptionError as error:
+        raise HTTPException(
+            status_code=422,
+            detail="No speech was detected",
+        ) from error
+    except OpenAIServiceError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Conversation processing is unavailable",
+        ) from error
+
+    conversation = Conversation(
+        person_id=person.id,
+        summary=summary.summary,
+        topics=summary.topics,
+        follow_up=summary.follow_up,
+        occurred_at=datetime.now(UTC).replace(tzinfo=None),
+    )
+
+    try:
+        db.add(conversation)
+        db.commit()
+        db.refresh(conversation)
+    except SQLAlchemyError as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the conversation",
+        ) from error
+
+    return {
+        "id": conversation.id,
+        "person_id": conversation.person_id,
+        "summary": conversation.summary,
+        "topics": conversation.topics,
+        "follow_up": conversation.follow_up,
+        "occurred_at": conversation.occurred_at.isoformat(),
     }
