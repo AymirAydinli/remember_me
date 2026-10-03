@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 from remember_me.database import engine, get_db
-from remember_me.models import Person, FaceEmbedding
+from remember_me.models import Person, FaceEmbedding, Conversation
 from remember_me.face_service import (
     MODEL_NAME,
     FaceProcessingError,
@@ -195,9 +195,36 @@ def recognize_face(
 
     person = matched_embedding.person
 
+    try:
+        latest_conversation = db.scalars(
+            select(Conversation)
+            .where(Conversation.person_id == person.id)
+            .order_by(
+                Conversation.occurred_at.desc(),
+                Conversation.id.desc(),
+            )
+            .limit(1)
+        ).first()
+    except SQLAlchemyError as error:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not load conversation history",
+        ) from error
+
+    last_conversation = None
+
+    if latest_conversation is not None:
+        last_conversation = {
+            "summary": latest_conversation.summary,
+            "follow_up": latest_conversation.follow_up,
+            "occurred_at": latest_conversation.occurred_at.isoformat(),
+        }
+
     return {
         "recognized": True,
+        "person_id": person.id,
         "name": person.name,
         "relationship": person.relationship,
         "face": face,
+        "last_conversation": last_conversation,
     }

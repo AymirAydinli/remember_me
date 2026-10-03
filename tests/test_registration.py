@@ -1,4 +1,5 @@
 from collections.abc import Generator, Iterator
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +15,7 @@ from remember_me.face_service import (
     NoFaceDetectedError,
 )
 from remember_me.main import app
-from remember_me.models import FaceEmbedding, Person
+from remember_me.models import FaceEmbedding, Person, Conversation
 
 
 @pytest.fixture
@@ -194,8 +195,25 @@ def test_recognizes_familiar_person(
                 model_name="ArcFace",
             )
         )
+        person.conversations.extend(
+            [
+                Conversation(
+                    summary="Anna discussed an older event.",
+                    topics=["older event"],
+                    follow_up=None,
+                    occurred_at=datetime(2026, 10, 1, 12, 0),
+                ),
+                Conversation(
+                    summary="Anna discussed her upcoming trip.",
+                    topics=["travel"],
+                    follow_up="Ask Anna how the trip went.",
+                    occurred_at=datetime(2026, 10, 3, 15, 30),
+                ),
+            ]
+        )
         db.add(person)
         db.commit()
+        person_id = person.id
 
     def fake_analyze_face(image_bytes: bytes) -> FaceAnalysis:
         assert image_bytes == b"query-image"
@@ -216,6 +234,7 @@ def test_recognizes_familiar_person(
     assert response.status_code == 200
     assert response.json() == {
         "recognized": True,
+        "person_id": person_id,
         "name": "Anna Kowalska",
         "relationship": "Daughter",
         "face": {
@@ -223,6 +242,11 @@ def test_recognizes_familiar_person(
             "y": 50,
             "width": 200,
             "height": 200,
+        },
+        "last_conversation": {
+            "summary": "Anna discussed her upcoming trip.",
+            "follow_up": "Ask Anna how the trip went.",
+            "occurred_at": "2026-10-03T15:30:00",
         },
     }
 
@@ -298,4 +322,53 @@ def test_returns_unknown_when_database_has_no_embeddings(
             "width": 200,
             "height": 200,
         },
+    }
+
+
+def test_recognized_person_without_conversations_returns_null(
+    registration_context: tuple[TestClient, sessionmaker[Session]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, test_session_factory = registration_context
+
+    with test_session_factory() as db:
+        person = Person(
+            name="Anna Kowalska",
+            relationship="Daughter",
+        )
+        person.embeddings.append(
+            FaceEmbedding(
+                embedding=[1.0, 0.0],
+                model_name="ArcFace",
+            )
+        )
+        db.add(person)
+        db.commit()
+        person_id = person.id
+
+    monkeypatch.setattr(
+        "remember_me.main.analyze_face",
+        lambda image_bytes: make_face_analysis([0.99, 0.1]),
+    )
+
+    response = client.post(
+        "/api/recognize",
+        files={
+            "image": ("query.jpg", b"query-image", "image/jpeg"),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "recognized": True,
+        "person_id": person_id,
+        "name": "Anna Kowalska",
+        "relationship": "Daughter",
+        "face": {
+            "x": 100,
+            "y": 50,
+            "width": 200,
+            "height": 200,
+        },
+        "last_conversation": None,
     }
