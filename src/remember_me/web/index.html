@@ -44,6 +44,13 @@
           <h2 id="person-name">No person detected</h2>
           <p id="person-relationship"></p>
 
+          <section id="conversation-memory" class="conversation-memory" hidden>
+            <p class="memory-label">Last conversation</p>
+            <p id="conversation-summary"></p>
+            <p id="conversation-follow-up" hidden></p>
+            <time id="conversation-date"></time>
+          </section>
+
           <div id="conversation-controls" class="conversation-controls" hidden>
             <div class="conversation-buttons">
               <button id="start-recording" type="button">Start recording</button>
@@ -51,7 +58,7 @@
                 Stop recording
               </button>
             </div>
-            <p id="recording-status" aria-live="polite"></p>
+            <p id="recording-status" data-state="idle" aria-live="polite"></p>
           </div>
         </section>
       </div>

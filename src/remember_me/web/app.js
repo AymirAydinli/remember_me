@@ -20,6 +20,12 @@ const conversationControls = document.querySelector(
 const startRecordingButton = document.querySelector("#start-recording");
 const stopRecordingButton = document.querySelector("#stop-recording");
 const recordingStatus = document.querySelector("#recording-status");
+const conversationMemory = document.querySelector("#conversation-memory");
+const conversationSummary = document.querySelector("#conversation-summary");
+const conversationFollowUp = document.querySelector(
+  "#conversation-follow-up"
+);
+const conversationDate = document.querySelector("#conversation-date");
 
 let cameraStream = null;
 let recognitionTimer = null;
@@ -39,6 +45,39 @@ function updateDetails(state, status, name, relationship = "") {
   statusText.textContent = status;
   personName.textContent = name;
   personRelationship.textContent = relationship;
+}
+
+function setRecordingStatus(state, message) {
+  recordingStatus.dataset.state = state;
+  recordingStatus.textContent = message;
+}
+
+function displayConversation(conversation) {
+  if (!conversation) {
+    conversationMemory.hidden = true;
+    conversationSummary.textContent = "";
+    conversationFollowUp.textContent = "";
+    conversationFollowUp.hidden = true;
+    conversationDate.textContent = "";
+    conversationDate.removeAttribute("datetime");
+    return;
+  }
+
+  conversationSummary.textContent = conversation.summary;
+  conversationFollowUp.textContent = conversation.follow_up
+    ? `Follow up: ${conversation.follow_up}`
+    : "";
+  conversationFollowUp.hidden = !conversation.follow_up;
+
+  const occurredAt = new Date(conversation.occurred_at);
+  conversationDate.dateTime = conversation.occurred_at;
+  conversationDate.textContent = Number.isNaN(occurredAt.getTime())
+    ? conversation.occurred_at
+    : occurredAt.toLocaleString([], {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+  conversationMemory.hidden = false;
 }
 
 function hideFaceBox() {
@@ -107,7 +146,8 @@ function clearConversationControls() {
   conversationControls.hidden = true;
   startRecordingButton.disabled = false;
   stopRecordingButton.disabled = true;
-  recordingStatus.textContent = "";
+  setRecordingStatus("idle", "");
+  displayConversation(null);
 }
 
 function captureFrame() {
@@ -171,6 +211,7 @@ async function recognizeFrame() {
       consecutiveUnknownResults = 0;
       positionFaceBox(body.face, "recognized");
       showConversationControls(body.person_id);
+      displayConversation(body.last_conversation);
       updateDetails(
         "recognized",
         "Recognized",
@@ -289,7 +330,7 @@ async function uploadRecording(audioBlob, contentType, personId) {
   const formData = new FormData();
   const extension = contentType.startsWith("audio/mp4") ? "mp4" : "webm";
   formData.append("audio", audioBlob, `conversation.${extension}`);
-  recordingStatus.textContent = "Transcribing and summarizing...";
+  setRecordingStatus("processing", "Transcribing and summarizing...");
 
   try {
     const response = await fetch(`/api/people/${personId}/conversations`, {
@@ -302,9 +343,13 @@ async function uploadRecording(audioBlob, contentType, personId) {
       throw new Error(body.detail || "Conversation processing failed");
     }
 
-    recordingStatus.textContent = "Conversation summary saved.";
+    displayConversation(body);
+    setRecordingStatus("success", "Conversation summary saved.");
   } catch (error) {
-    recordingStatus.textContent = error.message || "Conversation could not be saved.";
+    setRecordingStatus(
+      "error",
+      error.message || "Conversation could not be saved."
+    );
   } finally {
     conversationBusy = false;
     recordingPersonId = null;
@@ -333,7 +378,7 @@ async function finishRecording() {
   if (!audioBlob.size || personId === null) {
     conversationBusy = false;
     recordingPersonId = null;
-    recordingStatus.textContent = "No audio was recorded.";
+    setRecordingStatus("error", "No audio was recorded.");
     startRecordingButton.disabled = currentPersonId === null;
     stopRecordingButton.disabled = true;
     scheduleRecognition(0);
@@ -349,7 +394,10 @@ async function startRecording() {
   }
 
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-    recordingStatus.textContent = "Audio recording is not supported in this browser.";
+    setRecordingStatus(
+      "error",
+      "Audio recording is not supported in this browser."
+    );
     return;
   }
 
@@ -376,15 +424,18 @@ async function startRecording() {
     mediaRecorder.start();
 
     stopRecordingButton.disabled = false;
-    recordingStatus.textContent = "Recording conversation...";
+    setRecordingStatus("recording", "Recording conversation...");
     recordingTimeout = setTimeout(stopRecording, maxRecordingDuration);
-  } catch {
+  } catch (error) {
     releaseAudioStream();
     conversationBusy = false;
     recordingPersonId = null;
     startRecordingButton.disabled = false;
     stopRecordingButton.disabled = true;
-    recordingStatus.textContent = "Microphone permission is required.";
+    const message = error.name === "NotFoundError"
+      ? "No microphone was found."
+      : "Microphone permission is required.";
+    setRecordingStatus("error", message);
     scheduleRecognition(0);
   }
 }
@@ -395,7 +446,7 @@ function stopRecording() {
   stopRecordingButton.disabled = true;
 
   if (mediaRecorder?.state === "recording") {
-    recordingStatus.textContent = "Preparing recording...";
+    setRecordingStatus("processing", "Preparing recording...");
     mediaRecorder.stop();
   }
 }

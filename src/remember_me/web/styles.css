@@ -176,6 +176,40 @@ button:disabled {
   font-size: 1.3rem;
 }
 
+.conversation-memory {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
+  background: rgb(0 255 255 / 4%);
+}
+
+.memory-label {
+  margin: 0 0 0.5rem;
+  color: rgb(0 255 255 / 72%);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#conversation-summary {
+  margin: 0;
+  line-height: 1.45;
+}
+
+#conversation-follow-up {
+  margin: 0.75rem 0 0;
+  color: #26c281;
+}
+
+#conversation-date {
+  display: block;
+  margin-top: 0.75rem;
+  color: rgb(0 255 255 / 65%);
+  font-size: 0.82rem;
+}
+
 .conversation-controls {
   margin-top: 1.25rem;
   padding-top: 1rem;
@@ -197,6 +231,22 @@ button:disabled {
   margin: 0.75rem 0 0;
   color: var(--hud-cyan);
   font-size: 0.95rem;
+}
+
+#recording-status[data-state="recording"] {
+  color: #ff766b;
+}
+
+#recording-status[data-state="processing"] {
+  color: #f0b429;
+}
+
+#recording-status[data-state="success"] {
+  color: #26c281;
+}
+
+#recording-status[data-state="error"] {
+  color: #ff766b;
 }
 
 .registration-page {
