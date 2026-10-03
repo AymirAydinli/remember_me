@@ -8,6 +8,8 @@ from sqlalchemy.pool import StaticPool
 
 from remember_me.database import Base, get_db
 from remember_me.face_service import (
+    FaceAnalysis,
+    FaceBox,
     MultipleFacesDetectedError,
     NoFaceDetectedError,
 )
@@ -87,6 +89,18 @@ def test_register_person(
     assert embeddings[0].person_id == people[0].id
     assert embeddings[0].embedding == expected_embedding
     assert embeddings[0].model_name == "ArcFace"
+
+
+def make_face_analysis(embedding: list[float]) -> FaceAnalysis:
+    return FaceAnalysis(
+        embedding=embedding,
+        face=FaceBox(
+            x=100,
+            y=50,
+            width=200,
+            height=200,
+        ),
+    )
 
 
 def test_invalid_image_creates_no_records(
@@ -183,13 +197,13 @@ def test_recognizes_familiar_person(
         db.add(person)
         db.commit()
 
-    def fake_generate_embedding(image_bytes: bytes) -> list[float]:
+    def fake_analyze_face(image_bytes: bytes) -> FaceAnalysis:
         assert image_bytes == b"query-image"
-        return [0.99, 0.1]
+        return make_face_analysis([0.99, 0.1])
 
     monkeypatch.setattr(
-        "remember_me.main.generate_face_embedding",
-        fake_generate_embedding,
+        "remember_me.main.analyze_face",
+        fake_analyze_face,
     )
 
     response = client.post(
@@ -204,6 +218,12 @@ def test_recognizes_familiar_person(
         "recognized": True,
         "name": "Anna Kowalska",
         "relationship": "Daughter",
+        "face": {
+            "x": 100,
+            "y": 50,
+            "width": 200,
+            "height": 200,
+        },
     }
 
 
@@ -228,8 +248,8 @@ def test_returns_unknown_when_closest_match_is_weak(
         db.commit()
 
     monkeypatch.setattr(
-        "remember_me.main.generate_face_embedding",
-        lambda image_bytes: [1.0, 0.0],
+        "remember_me.main.analyze_face",
+        lambda image_bytes: make_face_analysis([1.0, 0.0]),
     )
 
     response = client.post(
@@ -240,7 +260,15 @@ def test_returns_unknown_when_closest_match_is_weak(
     )
 
     assert response.status_code == 200
-    assert response.json() == {"recognized": False}
+    assert response.json() == {
+        "recognized": False,
+        "face": {
+            "x": 100,
+            "y": 50,
+            "width": 200,
+            "height": 200,
+        },
+    }
 
 
 def test_returns_unknown_when_database_has_no_embeddings(
@@ -250,8 +278,8 @@ def test_returns_unknown_when_database_has_no_embeddings(
     client, _ = registration_context
 
     monkeypatch.setattr(
-        "remember_me.main.generate_face_embedding",
-        lambda image_bytes: [1.0, 0.0],
+        "remember_me.main.analyze_face",
+        lambda image_bytes: make_face_analysis([1.0, 0.0]),
     )
 
     response = client.post(
@@ -262,4 +290,12 @@ def test_returns_unknown_when_database_has_no_embeddings(
     )
 
     assert response.status_code == 200
-    assert response.json() == {"recognized": False}
+    assert response.json() == {
+        "recognized": False,
+        "face": {
+            "x": 100,
+            "y": 50,
+            "width": 200,
+            "height": 200,
+        },
+    }

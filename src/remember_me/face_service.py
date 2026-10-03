@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import cv2
 import numpy as np
 
@@ -21,7 +23,21 @@ class MultipleFacesDetectedError(FaceProcessingError):
     pass
 
 
-def generate_face_embedding(image_bytes: bytes) -> list[float]:
+@dataclass(frozen=True)
+class FaceBox:
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
+class FaceAnalysis:
+    embedding: list[float]
+    face: FaceBox
+
+
+def analyze_face(image_bytes: bytes) -> FaceAnalysis:
     if not image_bytes:
         raise InvalidImageError("The uploaded image is empty")
 
@@ -58,9 +74,33 @@ def generate_face_embedding(image_bytes: bytes) -> list[float]:
             "Multiple faces were detected; upload an image containing one face"
         )
 
-    embedding = representations[0].get("embedding")
+    representation = representations[0]
+    embedding = representation.get("embedding")
+    facial_area = representation.get("facial_area")
 
-    if not embedding:
+    if embedding is None or len(embedding) == 0:
         raise FaceProcessingError("ArcFace did not return an embedding")
 
-    return [float(value) for value in embedding]
+    if not isinstance(facial_area, dict):
+        raise FaceProcessingError("Face coordinates were not returned")
+
+    required_coordinates = {"x", "y", "w", "h"}
+
+    if not required_coordinates.issubset(facial_area):
+        raise FaceProcessingError("Face coordinates are incomplete")
+
+    face = FaceBox(
+        x=int(facial_area["x"]),
+        y=int(facial_area["y"]),
+        width=int(facial_area["w"]),
+        height=int(facial_area["h"]),
+    )
+
+    return FaceAnalysis(
+        embedding=[float(value) for value in embedding],
+        face=face,
+    )
+
+
+def generate_face_embedding(image_bytes: bytes) -> list[float]:
+    return analyze_face(image_bytes).embedding

@@ -1,37 +1,83 @@
 const recognitionInterval = 2500;
+const unknownConfirmationFrames = 2;
 
 const video = document.querySelector("#camera");
-const cameraFrame = document.querySelector(".camera-frame");
+const cameraFrame = document.querySelector("#camera-frame");
 const canvas = document.querySelector("#capture-canvas");
+const faceBox = document.querySelector("#face-box");
 const startButton = document.querySelector("#start-camera");
 const stopButton = document.querySelector("#stop-camera");
-const result = document.querySelector("#recognition-result");
-const statusLabel = document.querySelector("#status-label");
+const details = document.querySelector("#person-details");
+const statusText = document.querySelector("#recognition-status");
 const personName = document.querySelector("#person-name");
-const relationship = document.querySelector("#person-relationship");
+const personRelationship = document.querySelector(
+  "#person-relationship"
+);
 
 let cameraStream = null;
 let recognitionTimer = null;
 let requestController = null;
+let lastFace = null;
+let consecutiveUnknownResults = 0;
 
-function updateResult(state, status, name, relation = "") {
-  result.dataset.state = state;
-  statusLabel.textContent = status;
+function updateDetails(state, status, name, relationship = "") {
+  details.className = state;
+  statusText.textContent = status;
   personName.textContent = name;
-  relationship.textContent = relation;
+  personRelationship.textContent = relationship;
+}
+
+function hideFaceBox() {
+  lastFace = null;
+  faceBox.hidden = true;
+  faceBox.className = "";
+}
+
+function positionFaceBox(face, state) {
+  if (
+    !face ||
+    !video.videoWidth ||
+    !video.videoHeight
+  ) {
+    hideFaceBox();
+    return;
+  }
+
+  lastFace = face;
+
+  const frameWidth = cameraFrame.clientWidth;
+  const frameHeight = cameraFrame.clientHeight;
+
+  const scale = Math.min(
+    frameWidth / video.videoWidth,
+    frameHeight / video.videoHeight
+  );
+
+  const displayedWidth = video.videoWidth * scale;
+  const displayedHeight = video.videoHeight * scale;
+  const offsetX = (frameWidth - displayedWidth) / 2;
+  const offsetY = (frameHeight - displayedHeight) / 2;
+
+  faceBox.style.left = `${offsetX + face.x * scale}px`;
+  faceBox.style.top = `${offsetY + face.y * scale}px`;
+  faceBox.style.width = `${face.width * scale}px`;
+  faceBox.style.height = `${face.height * scale}px`;
+
+  faceBox.className = state;
+  faceBox.hidden = false;
 }
 
 function scheduleRecognition(delay = recognitionInterval) {
   clearTimeout(recognitionTimer);
 
   if (cameraStream) {
-    recognitionTimer = setTimeout(recognizeCurrentFrame, delay);
+    recognitionTimer = setTimeout(recognizeFrame, delay);
   }
 }
 
 function captureFrame() {
   if (!video.videoWidth || !video.videoHeight) {
-    return null;
+    return Promise.resolve(null);
   }
 
   canvas.width = video.videoWidth;
@@ -45,16 +91,10 @@ function captureFrame() {
   });
 }
 
-async function recognizeCurrentFrame() {
+async function recognizeFrame() {
   if (!cameraStream) {
     return;
   }
-
-  updateResult(
-    "searching",
-    "Looking",
-    "Checking for a familiar person..."
-  );
 
   try {
     const image = await captureFrame();
@@ -77,10 +117,12 @@ async function recognizeCurrentFrame() {
     const body = await response.json();
 
     if (response.status === 422) {
-      updateResult(
-        "searching",
+      consecutiveUnknownResults = 0;
+      hideFaceBox();
+      updateDetails(
+        "",
         "Looking",
-        body.detail || "Position one face in the camera"
+        body.detail || "No face detected"
       );
       return;
     }
@@ -90,24 +132,40 @@ async function recognizeCurrentFrame() {
     }
 
     if (body.recognized) {
-      updateResult(
+      consecutiveUnknownResults = 0;
+      positionFaceBox(body.face, "recognized");
+      updateDetails(
         "recognized",
-        "Familiar person",
+        "Recognized",
         body.name,
         body.relationship
       );
     } else {
-      updateResult(
-        "unknown",
-        "Unknown person",
-        "I do not recognize this person"
-      );
+      consecutiveUnknownResults += 1;
+
+      if (consecutiveUnknownResults < unknownConfirmationFrames) {
+        positionFaceBox(body.face, "scanning");
+        updateDetails(
+          "scanning",
+          "Scanning",
+          "Checking this face..."
+        );
+      } else {
+        positionFaceBox(body.face, "unknown");
+        updateDetails(
+          "unknown",
+          "Unknown",
+          "Unknown person"
+        );
+      }
     }
   } catch (error) {
     if (error.name !== "AbortError") {
-      updateResult(
+      consecutiveUnknownResults = 0;
+      hideFaceBox();
+      updateDetails(
         "error",
-        "Camera assistance unavailable",
+        "Error",
         error.message
       );
     }
@@ -119,6 +177,7 @@ async function recognizeCurrentFrame() {
 
 async function startCamera() {
   startButton.disabled = true;
+  consecutiveUnknownResults = 0;
 
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
@@ -133,21 +192,16 @@ async function startCamera() {
     video.srcObject = cameraStream;
     await video.play();
 
-    cameraFrame.classList.add("is-active");
+    cameraFrame.classList.add("active");
     stopButton.disabled = false;
 
-    updateResult(
-      "searching",
-      "Camera active",
-      "Looking for a familiar person..."
-    );
-
+    updateDetails("", "Looking", "No person detected");
     scheduleRecognition(0);
-  } catch (error) {
+  } catch {
     cameraStream = null;
     startButton.disabled = false;
 
-    updateResult(
+    updateDetails(
       "error",
       "Camera unavailable",
       "Allow camera access and try again"
@@ -158,22 +212,28 @@ async function startCamera() {
 function stopCamera() {
   clearTimeout(recognitionTimer);
   requestController?.abort();
+  consecutiveUnknownResults = 0;
 
   cameraStream?.getTracks().forEach((track) => track.stop());
   cameraStream = null;
   video.srcObject = null;
 
-  cameraFrame.classList.remove("is-active");
+  cameraFrame.classList.remove("active");
   startButton.disabled = false;
   stopButton.disabled = true;
 
-  updateResult(
-    "idle",
-    "Camera is off",
-    "No recognition in progress"
-  );
+  hideFaceBox();
+  updateDetails("", "Camera is off", "No person detected");
 }
 
 startButton.addEventListener("click", startCamera);
 stopButton.addEventListener("click", stopCamera);
+
+window.addEventListener("resize", () => {
+  if (lastFace && !faceBox.hidden) {
+    const state = faceBox.className;
+    positionFaceBox(lastFace, state);
+  }
+});
+
 window.addEventListener("beforeunload", stopCamera);

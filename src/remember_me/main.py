@@ -19,6 +19,7 @@ from remember_me.face_service import (
     InvalidImageError,
     MultipleFacesDetectedError,
     NoFaceDetectedError,
+    analyze_face,
     generate_face_embedding,
 )
 from remember_me.recognition_service import find_matching_embedding
@@ -134,7 +135,7 @@ def register_person(
 def recognize_face(
     image: Annotated[UploadFile, File()],
     db: Annotated[Session, Depends(get_db)],
-) -> dict[str, bool | str]:
+) -> dict[str, object]:
     image_bytes = image.file.read(MAX_IMAGE_SIZE + 1)
 
     if len(image_bytes) > MAX_IMAGE_SIZE:
@@ -144,7 +145,7 @@ def recognize_face(
         )
 
     try:
-        query_embedding = generate_face_embedding(image_bytes)
+        analysis = analyze_face(image_bytes)
     except InvalidImageError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except NoFaceDetectedError as error:
@@ -169,13 +170,23 @@ def recognize_face(
             detail="Could not load familiar people",
         ) from error
 
+    face = {
+        "x": analysis.face.x,
+        "y": analysis.face.y,
+        "width": analysis.face.width,
+        "height": analysis.face.height,
+    }
+
     matched_embedding = find_matching_embedding(
-        query_embedding,
+        analysis.embedding,
         stored_embeddings,
     )
 
     if matched_embedding is None:
-        return {"recognized": False}
+        return {
+            "recognized": False,
+            "face": face,
+        }
 
     person = matched_embedding.person
 
@@ -183,4 +194,5 @@ def recognize_face(
         "recognized": True,
         "name": person.name,
         "relationship": person.relationship,
+        "face": face,
     }

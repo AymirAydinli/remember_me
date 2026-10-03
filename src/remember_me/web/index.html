@@ -9,51 +9,39 @@
   </head>
 
   <body>
-    <main class="app-shell">
-      <header>
-        <p class="eyebrow">Dementia assistance prototype</p>
-        <h1>Remember Me</h1>
-        <p class="introduction">
-          Start the camera to identify a familiar person.
-        </p>
-      </header>
+    <main>
+      <h1>Remember Me</h1>
 
-      <section class="camera-panel" aria-label="Camera">
-        <div class="camera-frame">
-          <video
-            id="camera"
-            autoplay
-            muted
-            playsinline
-            aria-label="Live camera preview"
-          ></video>
+      <div class="recognition-layout">
+        <section>
+          <div id="camera-frame">
+            <video
+              id="camera"
+              autoplay
+              muted
+              playsinline
+              aria-label="Live camera preview"
+            ></video>
 
-          <p id="camera-placeholder">Camera is off</p>
-        </div>
+            <div id="face-box" hidden></div>
+            <p id="camera-placeholder">Camera is off</p>
+          </div>
 
-        <canvas id="capture-canvas" hidden></canvas>
+          <canvas id="capture-canvas" hidden></canvas>
 
-        <div class="controls">
-          <button id="start-camera" type="button">Start camera</button>
+          <div class="controls">
+            <button id="start-camera" type="button">Start camera</button>
 
-          <button id="stop-camera" type="button" disabled>Stop camera</button>
-        </div>
-      </section>
+            <button id="stop-camera" type="button" disabled>Stop camera</button>
+          </div>
+        </section>
 
-      <section
-        id="recognition-result"
-        class="recognition-result"
-        data-state="idle"
-        aria-live="polite"
-      >
-        <p id="status-label" class="status-label">Camera is off</p>
-        <h2 id="person-name">No recognition in progress</h2>
-        <p id="person-relationship" class="relationship"></p>
-      </section>
-
-      <p class="privacy-note">
-        Camera frames are processed for recognition and are not stored.
-      </p>
+        <section id="person-details" aria-live="polite">
+          <p id="recognition-status">Camera is off</p>
+          <h2 id="person-name">No person detected</h2>
+          <p id="person-relationship"></p>
+        </section>
+      </div>
     </main>
   </body>
 </html>
