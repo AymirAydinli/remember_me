@@ -1,12 +1,22 @@
+:root {
+  --hud-cyan: #00ffff;
+  --hud-border: rgb(0 255 255 / 50%);
+  --hud-surface: rgb(0 255 255 / 7%);
+  --hud-radius: 14px;
+  --hud-shadow:
+    -5px -5px 15px rgb(0 255 255 / 12%),
+    5px 5px 15px rgb(0 0 0 / 65%);
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #f4f1e9;
-  color: #17211c;
-  font-family: system-ui, sans-serif;
+  background: #051014;
+  color: var(--hud-cyan);
+  font-family: monospace;
 }
 
 main {
@@ -29,7 +39,7 @@ h1 {
 }
 
 .page-link {
-  color: #17211c;
+  color: var(--hud-cyan);
   font-weight: 700;
 }
 
@@ -44,8 +54,10 @@ h1 {
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  border-radius: 1rem;
+  border-radius: var(--hud-radius);
+  border: 1px solid var(--hud-border);
   background: #111;
+  box-shadow: var(--hud-shadow);
 }
 
 #camera {
@@ -100,13 +112,15 @@ h1 {
 button {
   min-height: 3rem;
   padding: 0.65rem 1.25rem;
-  border: 0;
-  border-radius: 0.5rem;
-  background: #17211c;
-  color: white;
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
+  background: var(--hud-surface);
+  color: var(--hud-cyan);
   cursor: pointer;
   font: inherit;
+  font-family: monospace;
   font-weight: 700;
+  box-shadow: var(--hud-shadow);
 }
 
 button:disabled {
@@ -115,15 +129,17 @@ button:disabled {
 }
 
 #stop-camera {
-  background: #666;
+  background: var(--hud-surface);
 }
 
 #person-details {
   min-height: 12rem;
   padding: 1.5rem;
-  border-left: 0.4rem solid #bbb;
-  border-radius: 0.75rem;
-  background: white;
+  border: 1px solid var(--hud-border);
+  border-left-width: 0.4rem;
+  border-radius: var(--hud-radius);
+  background: var(--hud-surface);
+  box-shadow: var(--hud-shadow);
 }
 
 #person-details.recognized {
@@ -144,7 +160,7 @@ button:disabled {
 
 #recognition-status {
   margin: 0 0 0.75rem;
-  color: #606a64;
+  color: rgb(0 255 255 / 72%);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -156,8 +172,31 @@ button:disabled {
 
 #person-relationship {
   margin: 0.5rem 0 0;
-  color: #4e5952;
+  color: var(--hud-cyan);
   font-size: 1.3rem;
+}
+
+.conversation-controls {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d7dcd9;
+}
+
+.conversation-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+#stop-recording {
+  background: var(--hud-surface);
+}
+
+#recording-status {
+  min-height: 1.4rem;
+  margin: 0.75rem 0 0;
+  color: var(--hud-cyan);
+  font-size: 0.95rem;
 }
 
 .registration-page {
@@ -166,8 +205,10 @@ button:disabled {
 
 .registration-panel {
   padding: 1.5rem;
-  border-radius: 0.75rem;
-  background: white;
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
+  background: var(--hud-surface);
+  box-shadow: var(--hud-shadow);
 }
 
 .form-field {
@@ -184,16 +225,18 @@ button:disabled {
   width: 100%;
   min-height: 3rem;
   padding: 0.7rem 0.8rem;
-  border: 1px solid #b9c0bc;
-  border-radius: 0.5rem;
-  background: white;
-  color: #17211c;
+  border: 1px solid var(--hud-border);
+  border-radius: var(--hud-radius);
+  background: var(--hud-surface);
+  color: var(--hud-cyan);
   font: inherit;
+  font-family: monospace;
+  box-shadow: var(--hud-shadow);
 }
 
 .field-help {
   margin: 0;
-  color: #606a64;
+  color: var(--hud-cyan);
   font-size: 0.9rem;
 }
 
@@ -203,10 +246,11 @@ button:disabled {
   place-items: center;
   overflow: hidden;
   margin-bottom: 1rem;
-  border: 1px dashed #aeb7b1;
-  border-radius: 0.5rem;
-  background: #f8f7f2;
-  color: #606a64;
+  border: 1px dashed var(--hud-border);
+  border-radius: var(--hud-radius);
+  background: #07171b;
+  color: var(--hud-cyan);
+  box-shadow: var(--hud-shadow);
 }
 
 .image-preview img {
@@ -218,8 +262,11 @@ button:disabled {
 .form-message {
   margin: 1rem 0 0;
   padding: 0.8rem 1rem;
-  border-left: 0.3rem solid #aeb7b1;
-  background: #f8f7f2;
+  border: 1px solid var(--hud-border);
+  border-left-width: 0.3rem;
+  border-radius: var(--hud-radius);
+  background: var(--hud-surface);
+  box-shadow: var(--hud-shadow);
 }
 
 .form-message.success {
