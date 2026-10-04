@@ -79,3 +79,9 @@ hardware, upload audio, spend API credits, or expose the API key.
 - Only the structured summary is saved in the local SQLite database.
 - Face embeddings and conversation summaries are sensitive personal data.
 - `.env` and `remember_me.db` are excluded from Git.
+
+# Screenshots from the app
+
+![alt text](<Screenshot 2026-10-04 at 3.29.03 PM.png>)
+
+![alt text](image.png)
